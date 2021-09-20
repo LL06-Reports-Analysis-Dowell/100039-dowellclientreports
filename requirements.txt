@@ -1,0 +1,13 @@
+django
+pillow
+django-cors-headers
+ddrr
+django-werkzeug-debugger-runserver
+django-extensions
+psycopg2-binary
+django_sslserver
+drf-yasg
+pymongo
+pymongo[srv]
+djongo
+python-dateutil
