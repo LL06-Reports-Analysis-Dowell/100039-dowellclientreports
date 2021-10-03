@@ -8,8 +8,8 @@ import os.path, json, pymongo
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 import base64, os
-from PIL import Image
 from google_drive_downloader import GoogleDriveDownloader as gdd
+from django.utils.crypto import get_random_string
 class ReadSheet(APIView):
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
@@ -19,6 +19,8 @@ class ReadSheet(APIView):
             'key_range': openapi.Schema(type=openapi.TYPE_STRING, description='string'),
             'value_range': openapi.Schema(type=openapi.TYPE_STRING, description='string'),
             'convert_logo': openapi.Schema(type=openapi.TYPE_STRING, description='string'),
+            'database_name': openapi.Schema(type=openapi.TYPE_STRING, description='string'),
+            'collection_name': openapi.Schema(type=openapi.TYPE_STRING, description='string'),
         }
     ))
     def post(self, request):
@@ -29,6 +31,8 @@ class ReadSheet(APIView):
             key_range = request.data.get("key_range")
             value_range = request.data.get("value_range")
             convert_logo = request.data.get("convert_logo")
+            database_name = request.data.get("database_name")
+            collection_name = request.data.get("collection_name")
 
             SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
             SERVICE_ACCOUNT_FILE = os.path.join(settings.BASE_DIR, 'keys.json')
@@ -59,13 +63,17 @@ class ReadSheet(APIView):
 
             if convert_logo == "Yes" or convert_logo == "yes":
                 for data_row in data:
-                    data_row['Logo'] = get_as_base64( data_row['Logo'])
+                    data_row['Logo'] = get_as_base64(data_row['Logo'])
 
 
             connect_string = 'mongodb+srv://qruser:qr1234@cluster0.n2ih9.mongodb.net/'
             client = pymongo.MongoClient(connect_string)
-            db = client.sheet_data
-            coll = db.records
+            db = client[database_name]
+            coll = db[collection_name]
+            x = coll.insert_many(data)
+            # aa = client_report_obj = coll.find({})
+            #     for row in aa:
+            #         logo = row['Logo']
             return Response({"Congrats. Records inserted successfully!"}, status=HTTP_200_OK)
         except Exception as e:
             return Response({"Failure! Please provide valid sheet_id, name or range."}, status=HTTP_400_BAD_REQUEST)
@@ -73,16 +81,16 @@ class ReadSheet(APIView):
 def get_as_base64(url):
     file_id = url.split("id=")
     file_id = file_id[1]
-    dest_path = './data/image.jpg'
-    dest_path1 = './data/image1.jpg'
-    gdd.download_file_from_google_drive(file_id=file_id, dest_path= dest_path)
-    im = Image.open(dest_path)
-    im.save(dest_path1)
-    with open(dest_path1, "rb") as image_file:
-        encoded_string = base64.b64encode(image_file.read())
+
+    dest_path = os.path.join(settings.BASE_DIR,  'data/image.png')
     if os.path.isfile(dest_path):
         os.remove(dest_path)
-        if os.path.isfile(dest_path1):
-            os.remove(dest_path1)
+    gdd.download_file_from_google_drive(file_id=file_id, dest_path=dest_path)
+
+    with open(dest_path, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read())
+
+    if os.path.isfile(dest_path):
+        os.remove(dest_path)
 
     return encoded_string
